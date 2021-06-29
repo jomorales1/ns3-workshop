@@ -19,11 +19,18 @@ using namespace std;
 
 NS_LOG_COMPONENT_DEFINE ("First");
 
+// JD START
+
+// JD FIN
+
 int main(int argc, char *argv[]) {
     uint32_t nodes = 20;
     uint32_t stopTime = 10;
     string packetSize = "1024";
     string dataRate = "100kb/s";
+    uint32_t trafficType = 0;
+    uint32_t mobilityType = 0;
+    uint32_t distributionType = 0;
 
     CommandLine cmd (__FILE__);
     cmd.AddValue("stopTime", "Stop time", stopTime);
