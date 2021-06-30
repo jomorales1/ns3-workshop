@@ -19,27 +19,82 @@ using namespace std;
 
 NS_LOG_COMPONENT_DEFINE ("First");
 
-// JD START
+uint32_t nodes = 20;
+uint32_t stopTime = 10;
+string packetSize = "1024";
+string dataRate = "100kb/s";
+uint32_t trafficTypeCode = 0;
+uint32_t mobilityType = 0;
+uint32_t distributionType = 1;
 
+string trafficType;
+uint32_t port = 3000;
+
+// JD START
+void unicast() {
+    Ptr<Node> appSource = NodeList::GetNode (0);
+    Ptr<Node> appSink = NodeList::GetNode (nodes - 1);
+    Ipv4Address remoteAddr = appSink->GetObject<Ipv4> ()->GetAddress (1, 0).GetLocal ();
+    OnOffHelper onoff (trafficType,
+                        Address (InetSocketAddress (remoteAddr, port)));
+
+    ApplicationContainer apps = onoff.Install (appSource);
+    apps.Start (Seconds (1));
+    apps.Stop (Seconds (stopTime));
+
+    PacketSinkHelper sink (trafficType,
+                    InetSocketAddress (Ipv4Address::GetAny (), port));
+    apps = sink.Install (appSink);
+    apps.Start (Seconds (1));
+}
+
+void broadcast () {
+    Address broadcastAddress (InetSocketAddress (Ipv4Address ("255.255.255.255"), port));
+    OnOffHelper onOff (trafficType, broadcastAddress);
+
+    ApplicationContainer app = onOff.Install (NodeList::GetNode(0));
+    app.Start(Seconds (1.0));
+    app.Stop(Seconds (stopTime));
+    
+    Address receiveFrom (InetSocketAddress (Ipv4Address::GetAny (), port));
+    PacketSinkHelper sink (trafficType, receiveFrom);
+                            
+    app = sink.Install (NodeList::GetNode (1));
+    for (uint32_t i = 2; i < nodes; i++) {
+        app.Add(sink.Install (NodeList::GetNode (i)));
+    }
+    app.Start (Seconds (1.0));
+    app.Stop (Seconds (stopTime));  
+}
+
+void multicast() {
+    
+}
 // JD FIN
 
 int main(int argc, char *argv[]) {
-    uint32_t nodes = 20;
-    uint32_t stopTime = 10;
-    string packetSize = "1024";
-    string dataRate = "100kb/s";
-    uint32_t trafficType = 0;
-    uint32_t mobilityType = 0;
-    uint32_t distributionType = 0;
-
     CommandLine cmd (__FILE__);
     cmd.AddValue("stopTime", "Stop time", stopTime);
     cmd.AddValue("packetSize", "Packets' size", packetSize);
     cmd.AddValue("dataRate", "Data rate", dataRate);
+    cmd.AddValue("trafficTypeCode", "Traffic Type", trafficTypeCode);
+    cmd.AddValue("distributionType", "Dsitribution type", distributionType);
     cmd.Parse (argc, argv);
 
     Config::SetDefault ("ns3::OnOffApplication::PacketSize", StringValue (packetSize));
     Config::SetDefault ("ns3::OnOffApplication::DataRate", StringValue (dataRate));
+
+    switch(trafficTypeCode) {
+        case 0:
+            trafficType = "ns3::UdpSocketFactory";
+            break;
+        case 1:
+            trafficType = "ns3::TCPSocketFactory";
+            break;
+        default:
+            std::cout << "Invalid code for traffic type" << std::endl;
+            exit (1);
+    }
 
     NodeContainer nodesContainer;
     nodesContainer.Create(nodes);
@@ -75,28 +130,21 @@ int main(int argc, char *argv[]) {
                                     "LayoutType", StringValue ("RowFirst"));
     mobility.Install(nodesContainer);
     NS_LOG_INFO ("Create Applications.");
-    uint16_t port = 9;   // Discard port (RFC 863)
 
-    // We want the source to be the first node created outside of the backbone
-    // Conveniently, the variable "backboneNodes" holds this node index value
-    Ptr<Node> appSource = NodeList::GetNode (0);
-    // We want the sink to be the last node created in the topology.
-    Ptr<Node> appSink = NodeList::GetNode (nodes - 1);
-    // Let's fetch the IP address of the last node, which is on Ipv4Interface 1
-    Ipv4Address remoteAddr = appSink->GetObject<Ipv4> ()->GetAddress (1, 0).GetLocal ();
-
-    OnOffHelper onoff ("ns3::UdpSocketFactory",
-                        Address (InetSocketAddress (remoteAddr, port)));
-
-    ApplicationContainer apps = onoff.Install (appSource);
-    apps.Start (Seconds (3));
-    apps.Stop (Seconds (stopTime - 1));
-
-    // Create a packet sink to receive these packets
-    PacketSinkHelper sink ("ns3::UdpSocketFactory",
-                            InetSocketAddress (Ipv4Address::GetAny (), port));
-    apps = sink.Install (appSink);
-    apps.Start (Seconds (3));
+    switch (distributionType) {
+        case 0:
+            unicast();
+            break;
+        case 1:
+            broadcast();
+            break;
+        case 2:
+            multicast();
+            break;
+        default:
+            std::cout << "Invalid code for distribution type" << std::endl;
+            exit (1);
+    }
 
     AnimationInterface anim ("first.xml");
 
