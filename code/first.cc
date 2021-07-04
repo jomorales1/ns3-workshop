@@ -31,21 +31,37 @@ string trafficType;
 uint32_t port = 3000;
 
 // JD START
-void unicast() {
+void unicast(int numOfServers) {
+    int numOfClients = nodes - numOfServers;
     Ptr<Node> appSource = NodeList::GetNode (0);
-    Ptr<Node> appSink = NodeList::GetNode (nodes - 1);
-    Ipv4Address remoteAddr = appSink->GetObject<Ipv4> ()->GetAddress (1, 0).GetLocal ();
-    OnOffHelper onoff (trafficType,
-                        Address (InetSocketAddress (remoteAddr, port)));
+    Ipv4Address serversAddresses[numOfServers];
 
-    ApplicationContainer apps = onoff.Install (appSource);
-    apps.Start (Seconds (1));
-    apps.Stop (Seconds (stopTime));
+    for (int i = 1; i <= numOfServers; i++) {
+        Ptr<Node> server = NodeList::GetNode (nodes - i);
+        serversAddresses[i] = server->GetObject<Ipv4> ()->GetAddress (1, 0).GetLocal ();
 
-    PacketSinkHelper sink (trafficType,
-                    InetSocketAddress (Ipv4Address::GetAny (), port));
-    apps = sink.Install (appSink);
-    apps.Start (Seconds (1));
+        PacketSinkHelper sink (
+            trafficType,
+            InetSocketAddress (Ipv4Address::GetAny (), port)
+        );
+        apps = sink.Install (server);
+        apps.Start (Seconds (1));
+        apps.Stop (Seconds (stopTime));
+    }
+
+    for (int c = 0; c < numOfClients; c++) {
+        Ptr<Node> client = NodeList::GetNode(c);
+        for (int s = 0; s < numOfServers; s++) {
+            OnOffHelper onoff (
+                trafficType,
+                Address (InetSocketAddress (serversAddresses[s], port))
+            );
+
+            ApplicationContainer apps = onoff.Install (client);
+            apps.Start (Seconds (1));
+            apps.Stop (Seconds (stopTime));
+        }
+    }
 }
 
 void broadcast () {
@@ -133,7 +149,7 @@ int main(int argc, char *argv[]) {
 
     switch (distributionType) {
         case 0:
-            unicast();
+            unicast(2);
             break;
         case 1:
             broadcast();
