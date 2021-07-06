@@ -29,7 +29,6 @@ uint32_t stopTime = 10;
 string packetSize = "1024";
 string dataRate = "100kb/s";
 uint32_t trafficTypeCode = 0;
-uint32_t mobilityType = 0;
 uint32_t distributionType = 0;
 uint32_t routingProtocol = 0;
 
@@ -38,12 +37,11 @@ uint32_t port = 3000;
 
 void unicast(int numOfServers) {
     int numOfClients = nodes - numOfServers;
-    Ptr<Node> appSource = NodeList::GetNode (0);
     Ipv4Address serversAddresses[numOfServers];
 
     for (int i = 1; i <= numOfServers; i++) {
         Ptr<Node> server = NodeList::GetNode (nodes - i);
-        serversAddresses[i] = server->GetObject<Ipv4> ()->GetAddress (1, 0).GetLocal ();
+        serversAddresses[i - 1] = server->GetObject<Ipv4> ()->GetAddress (1, 0).GetLocal ();
 
         PacketSinkHelper sink (
             trafficType,
@@ -96,18 +94,22 @@ int main(int argc, char *argv[]) {
     cmd.AddValue("trafficTypeCode", "Traffic Type", trafficTypeCode);
     cmd.AddValue("distributionType", "Distribution type", distributionType);
     cmd.AddValue("routingProtocol", "Routing protocol", routingProtocol);
-    cmd.AddValue("mobilityType", "Mobility type", mobilityType);
     cmd.Parse (argc, argv);
 
     Config::SetDefault ("ns3::OnOffApplication::PacketSize", StringValue (packetSize));
     Config::SetDefault ("ns3::OnOffApplication::DataRate", StringValue (dataRate));
+
+    if (stopTime < 6) {
+        std::cout << "Simulation time must greater than 5 sec" << std::endl;
+        exit (1);
+    }
 
     switch(trafficTypeCode) {
         case 0:
             trafficType = "ns3::UdpSocketFactory";
             break;
         case 1:
-            trafficType = "ns3::TCPSocketFactory";
+            trafficType = "ns3::TcpSocketFactory";
             break;
         default:
             std::cout << "Invalid code for traffic type" << std::endl;
@@ -180,11 +182,6 @@ int main(int argc, char *argv[]) {
                                     "DeltaY", DoubleValue (20.0),
                                     "GridWidth", UintegerValue (5),
                                     "LayoutType", StringValue ("RowFirst"));
-    
-    switch (mobilityType) {
-        case 0:
-            break;
-    }
 
     mobility.Install(nodesContainer);
     NS_LOG_INFO ("Create Applications.");
@@ -195,9 +192,6 @@ int main(int argc, char *argv[]) {
             break;
         case 1:
             broadcast();
-            break;
-        case 2:
-            multicast();
             break;
         default:
             std::cout << "Invalid code for distribution type" << std::endl;
