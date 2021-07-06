@@ -171,7 +171,7 @@ int main(int argc, char *argv[]) {
     wifiPhy.EnableAsciiAll (stream);
     internet.EnableAsciiIpv4All (stream);
 
-    wifiPhy.EnablePcap ("traffic-output", nodes);
+    wifiPhy.EnablePcap ("traffic-output", netDevices);
     // wifiPhy.EnablePcap ("traffic-output", appSink->GetId (), 0);
 
 
