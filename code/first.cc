@@ -44,7 +44,7 @@ void unicast(int numOfServers) {
             trafficType,
             InetSocketAddress (Ipv4Address::GetAny (), port)
         );
-        apps = sink.Install (server);
+        ApplicationContainer apps = sink.Install (server);
         apps.Start (Seconds (1));
         apps.Stop (Seconds (stopTime));
     }
@@ -161,6 +161,19 @@ int main(int argc, char *argv[]) {
             std::cout << "Invalid code for distribution type" << std::endl;
             exit (1);
     }
+
+    NS_LOG_INFO ("Configure Tracing.");
+    //
+    // Let's set up some ns-2-like ascii traces, using another helper class
+    //
+    AsciiTraceHelper ascii;
+    Ptr<OutputStreamWrapper> stream = ascii.CreateFileStream ("tracing.tr");
+    wifiPhy.EnableAsciiAll (stream);
+    internet.EnableAsciiIpv4All (stream);
+
+    wifiPhy.EnablePcap ("traffic-output", nodes);
+    // wifiPhy.EnablePcap ("traffic-output", appSink->GetId (), 0);
+
 
     AnimationInterface anim ("first.xml");
 
