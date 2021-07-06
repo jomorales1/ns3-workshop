@@ -4,12 +4,17 @@
 #include "ns3/ssid.h"
 #include "ns3/mobility-helper.h"
 #include "ns3/internet-stack-helper.h"
+#include "ns3/ipv4-static-routing-helper.h"
+#include "ns3/ipv4-list-routing-helper.h"
 #include "ns3/ipv4-address-helper.h"
 #include "ns3/on-off-helper.h"
 #include "ns3/yans-wifi-channel.h"
 #include "ns3/qos-txop.h"
 #include "ns3/packet-sink-helper.h"
 #include "ns3/olsr-helper.h"
+#include "ns3/aodv-module.h"
+#include "ns3/dsdv-module.h"
+#include "ns3/dsr-module.h"
 #include "ns3/csma-helper.h"
 #include "ns3/animation-interface.h"
 #include <string>
@@ -25,12 +30,12 @@ string packetSize = "1024";
 string dataRate = "100kb/s";
 uint32_t trafficTypeCode = 0;
 uint32_t mobilityType = 0;
-uint32_t distributionType = 1;
+uint32_t distributionType = 0;
+uint32_t routingProtocol = 0;
 
 string trafficType;
 uint32_t port = 3000;
 
-// JD START
 void unicast(int numOfServers) {
     int numOfClients = nodes - numOfServers;
     Ptr<Node> appSource = NodeList::GetNode (0);
@@ -83,18 +88,15 @@ void broadcast () {
     app.Stop (Seconds (stopTime));  
 }
 
-void multicast() {
-    
-}
-// JD FIN
-
 int main(int argc, char *argv[]) {
     CommandLine cmd (__FILE__);
     cmd.AddValue("stopTime", "Stop time", stopTime);
     cmd.AddValue("packetSize", "Packets' size", packetSize);
     cmd.AddValue("dataRate", "Data rate", dataRate);
     cmd.AddValue("trafficTypeCode", "Traffic Type", trafficTypeCode);
-    cmd.AddValue("distributionType", "Dsitribution type", distributionType);
+    cmd.AddValue("distributionType", "Distribution type", distributionType);
+    cmd.AddValue("routingProtocol", "Routing protocol", routingProtocol);
+    cmd.AddValue("mobilityType", "Mobility type", mobilityType);
     cmd.Parse (argc, argv);
 
     Config::SetDefault ("ns3::OnOffApplication::PacketSize", StringValue (packetSize));
@@ -125,12 +127,46 @@ int main(int argc, char *argv[]) {
     wifiPhy.SetChannel (wifiChannel.Create ());
     NetDeviceContainer netDevices = wifi.Install (wifiPhy, mac, nodesContainer);
 
-    NS_LOG_INFO ("Enabling OLSR routing on all backbone nodes");
-    OlsrHelper olsr;
+    NS_LOG_INFO ("Setting routing protocol on nodes");
+    Ipv4ListRoutingHelper routingHelper;
+    OlsrHelper olsrHelper;
+    AodvHelper aodvHelper;
+    DsdvHelper dsdvHelper;
+    DsrHelper dsrHelper;
+    DsrMainHelper dsrMainHelper;
 
     InternetStackHelper internet;
-    internet.SetRoutingHelper (olsr); // has effect on the next Install ()
+    Ipv4StaticRoutingHelper staticRouting;
+    routingHelper.Add(staticRouting, 0);
+
+    switch (routingProtocol) {
+        case 0:
+            NS_LOG_INFO ("Setting OLSR routing protocol on nodes");
+            routingHelper.Add(olsrHelper, 1);
+            internet.SetRoutingHelper (routingHelper);
+            break;
+        case 1:
+            NS_LOG_INFO ("Setting AODV routing protocol on nodes");
+            routingHelper.Add(aodvHelper, 1);
+            internet.SetRoutingHelper (routingHelper);
+            break;
+        case 2:
+            NS_LOG_INFO ("Setting DSDV routing protocol on nodes");
+            routingHelper.Add(dsdvHelper, 1);
+            internet.SetRoutingHelper (routingHelper);
+            break;
+        case 3:
+            NS_LOG_INFO ("Setting DSR routing protocol on nodes");
+            break;
+        default:
+            std::cout << "Invalid code for routing protocol" << std::endl;
+            exit (1);
+    }
+
     internet.Install (nodesContainer);
+    if (routingProtocol == 3) {
+        dsrMainHelper.Install(dsrHelper, nodesContainer);
+    }
 
     Ipv4AddressHelper ipAddrs;
     ipAddrs.SetBase ("192.168.0.0", "255.255.255.0");
@@ -144,6 +180,12 @@ int main(int argc, char *argv[]) {
                                     "DeltaY", DoubleValue (20.0),
                                     "GridWidth", UintegerValue (5),
                                     "LayoutType", StringValue ("RowFirst"));
+    
+    switch (mobilityType) {
+        case 0:
+            break;
+    }
+
     mobility.Install(nodesContainer);
     NS_LOG_INFO ("Create Applications.");
 
